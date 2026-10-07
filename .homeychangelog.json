@@ -1,4 +1,7 @@
 {
+  "4.1.24": {
+    "en": "Experimental: add email verification during pairing and repair, preserve verified sessions and request reauthentication when needed; contributed by Giovani Kerst."
+  },
   "4.1.23": {
     "en": "Adding a device no longer fails with an unexplained error when your account returns no chargepoints. Charging points that report no session data no longer flood the log with errors. Also includes a security dependency update."
   },

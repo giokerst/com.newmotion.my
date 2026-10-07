@@ -4,6 +4,7 @@ const Homey = require('homey')
 const MNM = require('../../lib/50five')
 const CP = require('./chargepoint')
 const HomeyCrypt = require('../../lib/homeycrypt')
+const { PortalSession } = require('../../lib/portal-session')
 
 function mobile() {
     return
@@ -12,7 +13,28 @@ function mobile() {
 class ChargepointDriver extends Homey.Driver {
 
     onInit() {
-        this.chargepointService = new MNM.ChargePointService(this.getCredentials);
+        this.sessionOptions = {
+            load: async () => {
+                const value = this.homey.settings.get('portal_session');
+                if (!value) return null;
+                try { return JSON.parse(await HomeyCrypt.decrypt(value, this.getCredentials().cred_username)); }
+                catch (_) { return null; }
+            },
+            save: async (data, source) => {
+                if (source !== this.chargepointService.session) return;
+                const value = data ? await HomeyCrypt.crypt(JSON.stringify(data), this.getCredentials().cred_username) : null;
+                if (source === this.chargepointService.session) this.homey.settings.set('portal_session', value);
+            },
+            onExpired: async source => {
+                if (source !== this.chargepointService.session) return;
+                if (this.homey.settings.get('portal_auth_notice')) return;
+                this.homey.settings.set('portal_auth_notice', true);
+                await this.homey.notifications.createNotification({ excerpt: this.homey.__('auth.repair_notice') })
+                    .catch(() => this.error('Could not create authentication notification'));
+            }
+        };
+        this.chargepointService = new MNM.ChargePointService(this.getCredentials, this.sessionOptions);
+        this.attachSession(this.chargepointService.session);
 
         this._flowTriggerSessionStart = this.homey.flow.getDeviceTriggerCard('sessionstart').registerRunListener(async ( args, state ) => {
 			return true;
@@ -69,6 +91,54 @@ class ChargepointDriver extends Homey.Driver {
         }
     };
 
+    attachSession(client) {
+        client.load = this.sessionOptions.load;
+        client.save = data => this.sessionOptions.save(data, client);
+        client.onExpired = () => this.sessionOptions.onExpired(client);
+        this.chargepointService.session = client;
+    }
+
+    registerAuthentication(session) {
+        let pending = null;
+        let busy = false;
+        const finish = async () => {
+            const { client, username, encryptedPassword, origin } = pending;
+            const encryptedSession = await HomeyCrypt.crypt(JSON.stringify(client.export()), username);
+            // Publish credentials and the verified session only after both factors succeed.
+            this.homey.settings.set('user_email', username);
+            this.homey.settings.set('user_password', encryptedPassword);
+            this.homey.settings.set('user_url', origin);
+            this.homey.settings.set('portal_session', encryptedSession);
+            this.homey.settings.set('portal_auth_notice', false);
+            this.attachSession(client);
+            pending = null;
+            return { status: 'authenticated' };
+        };
+        const guarded = handler => async data => {
+            if (busy) throw new Error(this.homey.__('auth.busy'));
+            busy = true;
+            try { return await handler(data); }
+            finally { busy = false; }
+        };
+        session.setHandler('testlogin', guarded(async data => {
+            pending = null;
+            const username = String(data.username || '').trim();
+            if (!username || typeof data.password !== 'string' || !data.password) throw new Error(this.homey.__('auth.missing_credentials'));
+            const origin = PortalSession.origin(data.url);
+            const client = new PortalSession();
+            const encryptedPassword = await HomeyCrypt.crypt(data.password, username);
+            const result = await client.login(origin, username, data.password);
+            pending = { client, username, encryptedPassword, origin };
+            return result.status === 'authenticated' ? finish() : result;
+        }));
+        session.setHandler('verifyotp', guarded(async data => {
+            if (!pending) throw new Error(this.homey.__('auth.restart'));
+            const result = await pending.client.verify(String(data.code || '').trim());
+            return result.status === 'authenticated' ? finish() : result;
+        }));
+        session.setHandler('disconnect', async () => { pending = null; });
+    }
+
    async onRepair(session, device) {
         // Argument session is a PairSocket, similar to Driver.onPair
         // Argument device is a Homey.Device that's being repaired
@@ -81,46 +151,14 @@ class ChargepointDriver extends Homey.Driver {
             var cred_url = this.homey.settings.get('user_url');
 
             try {
-                plainpass = await HomeyCrypt.decrypt(cryptedpassword,username);
+                const plainpass = await HomeyCrypt.decrypt(cryptedpassword,username);
                 session.emit('loadaccount', {'username': username,'password': plainpass, 'url': cred_url});
             } catch (err) {
                 session.emit('loadaccount', {'username': username,'password': '', 'url': cred_url})
             }
         });
 
-        session.setHandler('testlogin', async ( data ) => {
-            console.log('Test login and provide feedback, username length: '+data.username.length+' password length: '+data.password.length);
-            //Store the provided credentials, but hash and salt it first
-            this.homey.settings.set('user_email',data.username);
-            HomeyCrypt.crypt(data.password,data.username).then(cryptedpass => {
-                //console.log(JSON.stringify(cryptedpass));
-                this.homey.settings.set('user_password',cryptedpass);
-            }) 
-            console.log('password encrypted, credentials stored. Clear existing tokens.');            
-            this.homey.settings.set('user_url', data.url);     
-            //Now we have the encrypted password stored we can start testing the info
-            this.chargepointService.clearAuthCookie();
-            console.log('Test new credentials and get a fresh token.');               
-            var testresult = await this.chargepointService.getAuthCookie()
-            .then(token => {
-                if(token==='')
-                {
-                    console.log('no token recieved, stay here and inform the user');
-                    return false;
-                }
-                else
-                {
-                    console.log('valid token received, progress to next view');
-                    return true;
-                }
-            })
-            .catch(err => {
-                console.log(err);
-                return false;
-            })
-            console.log('credential test ok: '+testresult);
-            return testresult;
-        });
+        this.registerAuthentication(session);
     
       }
 
@@ -138,7 +176,7 @@ class ChargepointDriver extends Homey.Driver {
                 var cred_url = this.homey.settings.get('user_url');
 
                 try {
-                    plainpass = await HomeyCrypt.decrypt(cryptedpassword,username);
+                    const plainpass = await HomeyCrypt.decrypt(cryptedpassword,username);
                     session.emit('loadaccount', {'username': username,'password': plainpass, 'url': cred_url});
                 } catch (err) {
                     session.emit('loadaccount', {'username': username,'password': '', 'url': cred_url})
@@ -150,44 +188,12 @@ class ChargepointDriver extends Homey.Driver {
                     const mycards = cards.map((card) => {
                         return card;
                     });
-                    session.emit('loadcards', mycards);
-                });
+                    return session.emit('loadcards', mycards);
+                }).catch(() => session.showView('login'));
             };
         });
 
-        session.setHandler('testlogin', async ( data ) => {
-            console.log('Test login and provide feedback, username length: '+data.username.length+' password length: '+data.password.length);
-            //Store the provided credentials, but hash and salt it first
-            this.homey.settings.set('user_email',data.username);
-            HomeyCrypt.crypt(data.password,data.username).then(cryptedpass => {
-                //console.log(JSON.stringify(cryptedpass));
-                this.homey.settings.set('user_password',cryptedpass);
-            }) 
-            console.log('password encrypted, credentials stored. Clear existing tokens.');
-            this.homey.settings.set('user_url', data.url);           
-            //Now we have the encrypted password stored we can start testing the info
-            this.chargepointService.clearAuthCookie();
-            console.log('Test new credentials and get a fresh token.');               
-            var testresult = await this.chargepointService.getAuthCookie()
-            .then(token => {
-                if(token==='')
-                {
-                    console.log('no token recieved, stay here and inform the user');
-                    return false;
-                }
-                else
-                {
-                    console.log('valid token received, progress to next view');
-                    return true;
-                }
-            })
-            .catch(err => {
-                console.log(err);
-                return false;
-            })
-            console.log('credential test ok: '+testresult);
-            return testresult;
-        });
+        this.registerAuthentication(session);
 
 
         session.setHandler('discover_chargepoints', async ( data ) => {

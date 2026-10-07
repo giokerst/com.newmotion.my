@@ -16,3 +16,6 @@ Turn on/off the chargepoint to start a charing session using your attached charg
 
 Supported devices
 Private new motion/shell recharge charge points for electric vehicles
+
+Experimental email 2FA
+See [TESTING-2FA.md](TESTING-2FA.md) for the draft implementation, installation implications and manual acceptance checklist.
