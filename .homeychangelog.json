@@ -1,4 +1,14 @@
 {
+  "4.1.27": {
+    "en": "Experimental: validate same-server post-verification redirects through the chargepoint API, independent of the portal landing page."
+  },
+  "4.1.26": {
+    "en": "Experimental: preserve verification form fields and encoding, and validate dashboard redirects after email verification."
+  },
+  "4.1.25": {
+    "en": "Experimental: align post-login session validation with the existing GET API request and identify failed authentication steps without exposing secrets.",
+    "nl": "Testversie: sessiecontrole na inloggen via dezelfde GET-aanroep als de bestaande app; gerichte foutmeldingen zonder inloggegevens."
+  },
   "4.1.24": {
     "en": "Experimental: add email verification during pairing and repair, preserve verified sessions and request reauthentication when needed; contributed by Giovani Kerst."
   },

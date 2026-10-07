@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { PortalSession } = require('../lib/portal-session');
 const origin = 'https://50five-snl.evc-net.com';
 const loginPage = '<form><input name="emailField"><input name="passwordField"><input name="Login" value="Aanmelden"></form>';
-const otpPage = '<form><input name="_token" value="csrf-test"><input name="_auth_code"></form>';
+const otpPage = '<form method="post" enctype="multipart/form-data"><input name="_token" value="csrf-test"><input name="_auth_code"></form>';
 const cookie = 'PHPSESSID=test-session; Path=/; Secure; HttpOnly; Max-Age=86400';
 const response = (status, data = '', headers = {}) => ({status, data, headers});
 function fixture(steps, options = {}) {
@@ -134,4 +134,119 @@ test('concurrent startup requests share one restored-session validation', async 
     const f=fixture(validSteps(),{load:async()=>c.export()});
     await Promise.all([f.client.ensure(origin),f.client.ensure(origin),f.client.ensure(origin)]);
     assert.equal(f.requests.length,2);
+});
+
+test('post-OTP validation uses the existing chargepoint GET request contract', async () => {
+    let saved = false;
+    const f = fixture([...challengeSteps(), response(302, '', {location:'/Overview'}),
+        response(200, 'Dashboard'), config => {
+            const url = new URL(config.url);
+            if (config.method !== 'GET' || !url.searchParams.has('requests')) return response(200, '[]');
+            assert.equal(url.searchParams.get('metricKey'), 'EndUserRechargeSpotListView_99');
+            assert.deepEqual(JSON.parse(url.searchParams.get('requests')), {'0': {
+                handler: '\\LMS\\EV\\AsyncServices\\DashboardAsyncService', method: 'networkOverview', params: {mode:'id'}
+            }});
+            assert.equal(config.data, undefined);
+            return response(200, '[[{"IDX":42}]]');
+        }], {save:async()=>{saved=true;}});
+    await f.client.login(origin, 'u', 'p');
+    assert.deepEqual(await f.client.verify('012345'), {status:'authenticated'});
+    assert.equal(saved, true);
+});
+
+test('post-OTP response failure identifies the stage without exposing response secrets', async () => {
+    for (const [body, stage] of [['<html>SECRET</html>', 'API_NOT_JSON'], ['[]', 'API_RESPONSE']]) {
+        let saved = false;
+        const f = fixture([...challengeSteps(), response(302, '', {location:'/Overview'}),
+            response(200, 'Dashboard'), response(200, body)], {save:async()=>{saved=true;}});
+        await f.client.login(origin, 'u', 'p');
+        await assert.rejects(f.client.verify('012345'), e =>
+            e.message.includes(stage + '; HTTP 200') && !e.message.includes('SECRET') && !e.message.includes('012345'));
+        assert.equal(saved, false);
+        assert.notEqual(f.client.state, 'authenticated');
+    }
+});
+
+test('OTP redirect to login identifies submission failure separately from API validation', async () => {
+    const f = fixture([...challengeSteps(), response(302, '', {location:'/Login/Login'})]);
+    await f.client.login(origin, 'u', 'p');
+    await assert.rejects(f.client.verify('012345'), /OTP_SUBMIT_LOGIN; HTTP 302/);
+    assert.notEqual(f.client.state, 'authenticated');
+});
+
+test('OTP form without enctype is sent as browser URL-encoded fields and actual submit value', async () => {
+    const page = '<form method="post" action="/2fa_check"><input type="hidden" name="_token" value="csrf-test"><input type="hidden" name="extra" value="a&amp;b"><input name="_auth_code"><button type="submit" name="VerifyOtp" value="Confirm">Confirm</button></form>';
+    const f = fixture([response(200,loginPage,{'set-cookie':[cookie]}),response(302,'',{location:'/2fa'}), response(200,page), config => {
+        assert.equal(config.method,'POST');
+        assert.equal(config.headers['Content-Type'],'application/x-www-form-urlencoded');
+        assert.deepEqual(Object.fromEntries(new URLSearchParams(config.data)), {
+            _token:'csrf-test', extra:'a&b', VerifyOtp:'Confirm', _auth_code:'012345'
+        });
+        assert.match(config.headers.Cookie,/PHPSESSID=test-session/);
+        return response(302,'',{location:'/2fa'});
+    }, response(302,'',{location:'/Overview'}), ...validSteps()]);
+    await f.client.login(origin,'u','p');
+    assert.deepEqual(await f.client.verify('012345'),{status:'authenticated'});
+});
+
+test('OTP form redirect to dashboard alone never authenticates and a loop is bounded', async () => {
+    let saved = false;
+    const f = fixture([...challengeSteps(),response(302,'',{location:'/2fa'}),
+        response(302,'',{location:'/Overview'}),response(302,'',{location:'/2fa'})],{save:async()=>{saved=true;}});
+    await f.client.login(origin,'u','p');
+    await assert.rejects(f.client.verify('012345'),/OTP_REDIRECT_LOOP/);
+    assert.equal(saved,false);
+    assert.notEqual(f.client.state,'authenticated');
+    assert.equal(f.steps.length,0);
+});
+
+test('OTP form redirect to login distinguishes session loss from a rejected code', async () => {
+    const f = fixture([...challengeSteps(),response(302,'',{location:'/2fa'}),response(302,'',{location:'/Login/Login'})]);
+    await f.client.login(origin,'u','p');
+    await assert.rejects(f.client.verify('012345'),/OTP_FORM_LOGIN; HTTP 302/);
+    assert.notEqual(f.client.state,'authenticated');
+});
+
+test('alternate OTP landing pages require API proof and are never visited', async () => {
+    for (const location of ['/EndUserRechargeSpotList', '/Overview?language=nl', '/Overview/']) {
+        const f = fixture([...challengeSteps(), response(302, '', {location}), ...validSteps()]);
+        await f.client.login(origin, 'u', 'p');
+        assert.equal((await f.client.verify('012345')).status, 'authenticated');
+        assert.equal(new URL(f.requests[5].url).pathname, '/Overview');
+        assert.equal(f.steps.length, 0);
+    }
+});
+
+test('unknown dashboard landing page uses only fixed read API and cannot bypass authentication', async () => {
+    for (const [body, succeeds] of [['[[]]', true], ['[]', false], [loginPage, false]]) {
+        let saved = false;
+        const f = fixture([...challengeSteps(), response(302, '', {location:'/EndUserRechargeSpotList'}),
+            response(302, '', {location:'/some-action'}), config => {
+                assert.equal(new URL(config.url).pathname, '/api/ajax');
+                assert.equal(config.method, 'GET');
+                return response(200, body);
+            }], {save:async value=>{if (value) saved=true;}});
+        await f.client.login(origin, 'u', 'p');
+        if (succeeds) assert.equal((await f.client.verify('012345')).status, 'authenticated');
+        else await assert.rejects(f.client.verify('012345'), {code:'AUTH_REQUIRED'});
+        assert.equal(saved, succeeds);
+        assert.equal(f.steps.length, 0);
+    }
+});
+
+test('foreign OTP landing page is rejected before validation', async () => {
+    const f = fixture([...challengeSteps(), response(302, '', {location:'https://other.example/landing'})]);
+    await f.client.login(origin, 'u', 'p');
+    await assert.rejects(f.client.verify('012345'), {code:'UNEXPECTED_REDIRECT'});
+    assert.equal(f.requests.length, 5);
+});
+
+test('OTP challenge can redirect to alternate landing page and Overview query is followed', async () => {
+    const f = fixture([...challengeSteps(), response(302, '', {location:'/2fa'}),
+        response(302, '', {location:'/EndUserRechargeSpotList'}),
+        response(302, '', {location:'/Overview/?language=nl'}), ...validSteps()]);
+    await f.client.login(origin, 'u', 'p');
+    assert.equal((await f.client.verify('012345')).status, 'authenticated');
+    assert.equal(new URL(f.requests[7].url).search, '?language=nl');
+    assert.equal(f.steps.length, 0);
 });

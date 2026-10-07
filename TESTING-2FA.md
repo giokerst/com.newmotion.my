@@ -1,6 +1,6 @@
-# Experimental 50five email 2FA — 4.1.24
+# Experimental 50five email 2FA — 4.1.27
 
-This branch adds the portal's email verification to Homey pairing and repair. It is a draft, not a tested Homey App Store release. No real 50five account or charger has been used during development.
+This branch adds the portal's email verification to Homey pairing and repair. The owner confirmed successful email-code login on Homey with version 4.1.27 on 7 October 2026. This is not a Homey App Store release; charger commands and long-running session behaviour still need separate verification.
 
 ## What changes
 
@@ -31,7 +31,9 @@ Clone this fork and check out `test/email-2fa`. Authenticate the Homey CLI and s
 
 **This branch retains app ID `com.newmotion.my`. Installing it replaces the existing app on the selected Homey; it does not create a second independent test app.** Do not uninstall the existing app or use a clean install, since that can remove its devices/flows. Record your current version and make a Homey backup before choosing to install. A GitHub PR itself does not install anything.
 
-## Manual acceptance checklist (not yet executed)
+## Manual acceptance checklist
+
+Email-code login through Repair has been confirmed by the owner. The remaining checks below have not yet been confirmed.
 
 1. Open Repair on an existing chargepoint. Sign in with the appropriate HTTPS country portal, then enter the email code. Incorrect or expired codes should remain on the verification step with a clear error; use Back to login to request another code.
 2. Confirm charger status and cards load. Complete the new-device pairing route separately if needed.
