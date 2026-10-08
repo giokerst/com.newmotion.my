@@ -16,17 +16,17 @@
     "description": "Support for EV charging points.",
     "main": "app.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "node --test test/*.test.js"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/kaohlive/com.newmotion.my.git"
+        "url": "git+https://github.com/giokerst/com.newmotion.my.git"
     },
     "keywords": [],
     "author": "",
     "license": "ISC",
     "bugs": {
-        "url": "https://github.com/kaohlive/com.newmotion.my/issues"
+        "url": "https://github.com/giokerst/com.newmotion.my/issues"
     },
-    "homepage": "https://github.com/kaohlive/com.newmotion.my#readme"
+    "homepage": "https://github.com/giokerst/com.newmotion.my#readme"
 }

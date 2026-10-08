@@ -8,9 +8,10 @@ const { DateTime } = require('luxon')
 class Chargepoint extends Homey.Device {
 
     async onInit() {
-        this.chargepointService = new FF.ChargePointService(this.getCredentials);
+        await this.driver.ready();
+        this.chargepointService = this.driver.chargepointService;
 
-        this.updateDevice();
+        this.updateDevice().catch(err => this.error(err.message));
         this.start_update_loop();
         this.setAvailable();
         //register flow cards
@@ -471,7 +472,20 @@ class Chargepoint extends Homey.Device {
         if (this._deleted) return;
         console.log('🔍 0.0: Lets update our charegepoint status');
         const settings = this.getSettings()
-        let fresh_token = await this.chargepointService.getAuthCookie()
+        let fresh_token;
+        try {
+            fresh_token = await this.chargepointService.getAuthCookie();
+            if (this._authUnavailable) {
+                await this.setAvailable();
+                this._authUnavailable = false;
+            }
+        } catch (err) {
+            if (err.code === 'AUTH_REQUIRED') {
+                this._authUnavailable = true;
+                await this.setUnavailable(this.homey.__('auth.repair_notice'));
+            }
+            throw err;
+        }
         if(fresh_token=='')
         {
             console.log('❌ 0.0: could not update device state due to no fresh token available');
@@ -780,18 +794,9 @@ class Chargepoint extends Homey.Device {
         }
     }
 
-    myChargeCards() {
-        console.log('user wants a list of cards');
-        return new Promise(async (resolve) => {
-            this.chargepointService.cards().then(function (cards) {
-                const mycards = cards.map((card) => {
-                    card.formattedName = card.name +' ('+card.printedNumber.slice(0, -6).replace(/./g, '*') + card.printedNumber.slice(-6);+')';
-                    card.printedNumber = card.printedNumber;
-                    return card;
-                });
-                return resolve(mycards);
-            });
-        });
+    async myChargeCards() {
+        const cards = await this.chargepointService.cards();
+        return cards.map(card => ({ ...card, formattedName: card.name + ' (' + card.rfid + ')' }));
     }
 
     //Deprecated

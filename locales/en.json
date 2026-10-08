@@ -1,6 +1,22 @@
 {
-    "settings": {
-      "title": "Shell Recharge Account",
-      "subtitle": "This page shows the current account credentials\nThe account can only be updated from the add new charge point wizard (add device) or the device repair function."
-    }
+  "settings": {
+    "title": "Shell Recharge Account",
+    "subtitle": "This page shows the current account credentials\nThe account can only be updated from the add new charge point wizard (add device) or the device repair function."
+  },
+  "auth": {
+    "intro": "Sign in to 50five. If requested, enter the code sent to your email. Credentials and the verified session are stored encrypted on Homey.",
+    "username": "Username",
+    "password": "Password",
+    "url": "Portal URL (optional)",
+    "login": "Log in / send code",
+    "code_help": "Enter the six-digit email code. The code is valid for 10 minutes. To request another code, return to login.",
+    "code": "Email verification code",
+    "verify": "Verify code",
+    "new_code": "Back to login / new code",
+    "failed": "Authentication failed. Please try again.",
+    "repair_notice": "50five needs you to sign in again. Open your charge point’s Repair screen to enter the email code.",
+    "busy": "Please wait for the current login request.",
+    "missing_credentials": "Enter your username and password.",
+    "restart": "Return to login to request a new verification code."
   }
+}

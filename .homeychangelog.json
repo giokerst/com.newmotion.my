@@ -1,4 +1,20 @@
 {
+  "4.1.28": {
+    "en": "Maintenance transferred to Giovani Kerst; update source repository and retain original developer credits."
+  },
+  "4.1.27": {
+    "en": "Experimental: validate same-server post-verification redirects through the chargepoint API, independent of the portal landing page."
+  },
+  "4.1.26": {
+    "en": "Experimental: preserve verification form fields and encoding, and validate dashboard redirects after email verification."
+  },
+  "4.1.25": {
+    "en": "Experimental: align post-login session validation with the existing GET API request and identify failed authentication steps without exposing secrets.",
+    "nl": "Testversie: sessiecontrole na inloggen via dezelfde GET-aanroep als de bestaande app; gerichte foutmeldingen zonder inloggegevens."
+  },
+  "4.1.24": {
+    "en": "Experimental: add email verification during pairing and repair, preserve verified sessions and request reauthentication when needed; contributed by Giovani Kerst."
+  },
   "4.1.23": {
     "en": "Adding a device no longer fails with an unexplained error when your account returns no chargepoints. Charging points that report no session data no longer flood the log with errors. Also includes a security dependency update."
   },

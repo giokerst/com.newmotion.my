@@ -1,59 +1,75 @@
-
-    <h1>50five Account</h1>
-    <p>Please provide your account details.<br />
-    These will be stored on your Homey encrypted and used to login during app operations.</p>
-
-    <fieldset>
-        <legend>Account settings</legend>
-
-        <div class="field row">
-            <label for="username">Username</label>
-            <input id="username" type="text" value="" />
-        </div>
-        <div class="field row">
-            <label for="password">Password</label>
-            <input id="password" type="password" value="" />
-        </div>
-        <div class="field row">
-            <label for="url">URL (optional)</label>
-            <input id="url" type="text" value="" />
-        </div>
-
-    </fieldset>
-
-    <button id="save" class="right">Login</button>
-
-    <script type="text/javascript">
-        var usernameElement = document.getElementById('username');
-        var passwordElement = document.getElementById('password');
-        var urlElement = document.getElementById('url');
-        var saveElement = document.getElementById('save');
-
-        saveElement.addEventListener('click', function(e) {
-            Homey.showLoadingOverlay();
-            Homey.emit('testlogin', { 'username':usernameElement.value,'password':passwordElement.value, 'url': urlElement.value }).then(function (result) {
-                console.log('Testcomplete result: '+result);
-                if(result)
-                {
-                    Homey.hideLoadingOverlay();
-                    Homey.emit( 'discover_chargepoints', null, function( err, result ){
-                        console.log(result); 
-                    });
-                }
-                else
-                {
-                    Homey.hideLoadingOverlay();
-                    Homey.alert("Login validation failed, check your credentials or try again.");
-                }
-            });
-        });
-
-        Homey.on('loadaccount', function(credentials, callback){
-            usernameElement.value=credentials.username;
-            passwordElement.value=credentials.password;
-            urlElement.value=credentials.url;
-        });
-
-    </script>
-
-</body>
+<h1>50five Account</h1>
+<p data-i18n="auth.intro"></p>
+<form id="account-form">
+  <fieldset id="account-fields">
+    <div class="field row"><label for="username" data-i18n="auth.username"></label><input id="username" type="text" autocomplete="username" required /></div>
+    <div class="field row"><label for="password" data-i18n="auth.password"></label><input id="password" type="password" autocomplete="current-password" required /></div>
+    <div class="field row"><label for="url" data-i18n="auth.url"></label><input id="url" type="url" placeholder="https://50five-snl.evc-net.com" /></div>
+  </fieldset>
+  <button id="login" type="submit" data-i18n="auth.login"></button>
+</form>
+<form id="otp-form" hidden>
+  <p data-i18n="auth.code_help"></p>
+  <label for="code" data-i18n="auth.code"></label>
+  <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
+  <button type="submit" data-i18n="auth.verify"></button>
+  <button id="restart" type="button" data-i18n="auth.new_code"></button>
+</form>
+<p id="error" role="alert"></p>
+<script>
+(function () {
+  var account = document.getElementById('account-form');
+  var otp = document.getElementById('otp-form');
+  var code = document.getElementById('code');
+  var error = document.getElementById('error');
+  var busy = false;
+  async function send(event, data) {
+    if (busy) return;
+    busy = true;
+    error.textContent = '';
+    document.querySelectorAll('button').forEach(function (button) { button.disabled = true; });
+    Homey.showLoadingOverlay();
+    try {
+      var result = await Homey.emit(event, data);
+      if (result && result.status === 'otp_required') {
+        account.hidden = true;
+        otp.hidden = false;
+        code.value = '';
+        code.focus();
+      } else if (result && result.status === 'authenticated') {
+        document.getElementById('password').value = '';
+        code.value = '';
+        await Homey.emit('discover_chargepoints', null);
+      } else {
+        error.textContent = Homey.__('auth.failed');
+      }
+    } catch (err) {
+      error.textContent = err.message || Homey.__('auth.failed');
+    } finally {
+      busy = false;
+      Homey.hideLoadingOverlay();
+      document.querySelectorAll('button').forEach(function (button) { button.disabled = false; });
+    }
+  }
+  account.addEventListener('submit', function (event) {
+    event.preventDefault();
+    send('testlogin', { username: document.getElementById('username').value, password: document.getElementById('password').value, url: document.getElementById('url').value });
+  });
+  otp.addEventListener('submit', function (event) {
+    event.preventDefault();
+    send('verifyotp', { code: code.value });
+  });
+  document.getElementById('restart').addEventListener('click', function () {
+    if (busy) return;
+    code.value = '';
+    otp.hidden = true;
+    account.hidden = false;
+    error.textContent = '';
+  });
+  Homey.on('loadaccount', function (credentials) {
+    document.getElementById('username').value = credentials.username || '';
+    document.getElementById('password').value = credentials.password || '';
+    document.getElementById('url').value = credentials.url || '';
+  });
+}());
+</script>

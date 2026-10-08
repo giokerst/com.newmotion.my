@@ -1,6 +1,22 @@
 {
-    "settings": {
-      "title": "Shell Recharge Account",
-      "subtitle": "Deze pagina laat zien welke account credentials nu opgeslagen zijn.\nU kunt deze alleen bijwerken via de laadpunt toevoegen wizard (new device) of de device repareren functie."
-    }
+  "settings": {
+    "title": "Shell Recharge Account",
+    "subtitle": "Deze pagina laat zien welke account credentials nu opgeslagen zijn.\nU kunt deze alleen bijwerken via de laadpunt toevoegen wizard (new device) of de device repareren functie."
+  },
+  "auth": {
+    "intro": "Log in bij 50five. Vul indien gevraagd de code uit je e-mail in. Inloggegevens en de bevestigde sessie worden versleuteld op Homey bewaard.",
+    "username": "Gebruikersnaam",
+    "password": "Wachtwoord",
+    "url": "Portaaladres (optioneel)",
+    "login": "Inloggen / code versturen",
+    "code_help": "Vul de zescijferige e-mailcode in. De code is 10 minuten geldig. Ga terug naar inloggen om een nieuwe code aan te vragen.",
+    "code": "Verificatiecode uit e-mail",
+    "verify": "Code bevestigen",
+    "new_code": "Terug naar inloggen / nieuwe code",
+    "failed": "Inloggen mislukt. Probeer het opnieuw.",
+    "repair_notice": "Log opnieuw in bij 50five. Open Repareren bij je laadpunt om de e-mailcode in te voeren.",
+    "busy": "Wacht tot de huidige inlogpoging klaar is.",
+    "missing_credentials": "Vul je gebruikersnaam en wachtwoord in.",
+    "restart": "Ga terug naar inloggen om een nieuwe verificatiecode aan te vragen."
   }
+}
