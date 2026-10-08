@@ -1,4 +1,7 @@
 {
+  "4.1.28": {
+    "en": "Maintenance transferred to Giovani Kerst; update source repository and retain original developer credits."
+  },
   "4.1.27": {
     "en": "Experimental: validate same-server post-verification redirects through the chargepoint API, independent of the portal landing page."
   },

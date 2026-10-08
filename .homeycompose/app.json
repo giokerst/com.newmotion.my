@@ -6,19 +6,22 @@
   },
   "sdk": 3,
   "brandColor": "#82BC41",
-  "version": "4.1.27",
+  "version": "4.1.28",
   "compatibility": ">=12.4.5",
   "author": {
-    "name": "Kaoh",
-    "email": "kaoh@kaoh.nl"
+    "name": "Giovani Kerst"
   },
   "homeyCommunityTopicId": 19001,
-  "source": "https://github.com/kaohlive/com.newmotion.my",
+  "source": "https://github.com/giokerst/com.newmotion.my",
   "contributing": {
     "donate": {}
   },
   "contributors": {
     "developers": [
+      {
+        "name": "Kaoh",
+        "email": "kaoh@kaoh.nl"
+      },
       {
         "name": "hansallis"
       },
