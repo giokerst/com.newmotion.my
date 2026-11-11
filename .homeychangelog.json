@@ -1,4 +1,7 @@
 {
+  "5.0.1": {
+    "en": "Fix ready status being shown as occupied; handle history endpoint redirects and retain totals on history errors, with improved diagnostics."
+  },
   "4.1.28": {
     "en": "Maintenance transferred to Giovani Kerst; update source repository and retain original developer credits."
   },

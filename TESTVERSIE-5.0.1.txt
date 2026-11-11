@@ -1,0 +1,46 @@
+50five 5.0.1 - testversie bezetmelding en transactiehistorie
+
+Wijzigingen
+- Status 40000 (Gereed) geldt als vrij en zonder actieve sessie.
+- Bezet is consistent met het aantal vrije connectors.
+- Historie mag beperkte redirects naar hetzelfde historie-endpoint volgen.
+  Aanmeldschermen blijven een nieuwe aanmelding vereisen; laadcommando's
+  worden nooit automatisch herhaald.
+- Een fout in de historie bewaart de laatst bekende totalen; live status
+  blijft afzonderlijk bijgewerkt worden.
+- Historiefouten vermelden de HTTP-status, zonder response-inhoud of tokens.
+- Ontbrekende links/kaartopmaak in historie veroorzaken geen null-fout meer.
+
+Status van de oplossing
+De fout in de bezetmelding is gereproduceerd met status 40000 uit het rapport.
+De oorzaak van de mislukte historieaanvraag is nog NIET bewezen: het rapport
+bevat geen HTTP-status. Redirectafhandeling is een kandidaatoplossing. Als de
+historie nog faalt, bevat het nieuwe diagnostische rapport meer informatie.
+Het actuele laadvermogen is hiermee nog niet bewezen hersteld.
+
+Bron
+Gebaseerd op giokerst/com.newmotion.my, commit
+c3b4ab26ebd88db8a6e30e8b3ec8e801d6886b7d (GitHub-versie 4.1.28 met email-2FA).
+Homey publiceert versie 5.0.0; de precieze gepubliceerde bronbundel kon niet
+worden vergeleken. Deze ZIP is een afzonderlijke testkandidaat 5.0.1.
+
+Installeren als developer
+Pak de ZIP uit. Open een terminal in de map met app.json.
+Met Node.js en de Homey CLI beschikbaar:
+  npx homey login
+  npx homey app install
+Selecteer de juiste Homey. Niet het laadpunt verwijderen: installeer de app
+met hetzelfde app-ID over de bestaande app. Maak zo nodig vooraf een backup.
+Dependencies zijn meegeleverd; npm ci kan ze opnieuw installeren.
+
+Test
+1. Zonder aangesloten auto: Bezet Nee; Aan het laden Nee; 0 W.
+2. Controleer of maandverbruik en laatste sessie weer worden bijgewerkt.
+3. Indien historie nog faalt: maak een diagnostisch rapport en deel de mail.
+4. Tijdens werkelijk laden: na vijf minuten status en vermogen controleren.
+
+Validatie
+37 geautomatiseerde tests geslaagd, waaronder status, historie-isolatie,
+redirects, geen herhaling van laadcommando's en email-2FA.
+Homey build en publish-validatie worden voor oplevering uitgevoerd.
+Niet op een echte Homey of 50five-account uitgevoerd; niet gepubliceerd.
