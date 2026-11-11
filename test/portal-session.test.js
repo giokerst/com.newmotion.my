@@ -300,3 +300,13 @@ test('commands never follow redirects even to the history endpoint', async () =>
     await assert.rejects(f.client.request('POST', '/api/ajax', 'command'), /REQUEST; HTTP 307/);
     assert.equal(f.requests.length, 1);
 });
+
+test('history diagnostics identify known redirect route without exposing query secrets', async () => {
+    const f = authenticatedFixture([response(302, '', {location:'/Transactions/List?secret=private'})]);
+    await assert.rejects(f.client.request('POST', '/Transactions/List/json', 'draw=1'), err => {
+        assert.match(err.message, /redirect \/Transactions\/List; followed 0/);
+        assert.doesNotMatch(err.message, /private|secret/);
+        return true;
+    });
+    assert.equal(f.requests.length, 1);
+});

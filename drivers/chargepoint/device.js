@@ -342,7 +342,7 @@ class Chargepoint extends Homey.Device {
                 console.log('✅ 0.11: We could not find event data');
                 lastEvent=null
             }
-            if(last_info[0].STATUS=='10000')
+            if(CP.isCharging(last_info[0]))
             {
                 // Find the item with the maximum TRANS_ENERGY_DELIVERED_KWH
                 let maxItem = last_info.reduce((max, item) => {
@@ -387,7 +387,7 @@ class Chargepoint extends Homey.Device {
                     }
                 }
                 if(this.hasCapability('measure_power')) {
-                    let MeterValue_kW = Math.max(...last_info.map(item => item.MOM_POWER_KW || 0))
+                    let MeterValue_kW = Number(last_info[0].MOM_POWER_KW) || 0
                     if(MeterValue_kW==null || MeterValue_kW ==0)
                     {
                         //In this case we estimate

@@ -1,0 +1,34 @@
+50five 5.0.3 - testversie actuele laadgegevens
+
+Het praktijkrapport van 5.0.2 bevat STATUS 50000, NOTIFICATION Laden,
+MOM_POWER_KW 5.4 en TRANS_ENERGY_DELIVERED_KWH 6.46. De app las dat als
+gepauzeerd en sloeg de meetwaarden over. Deze versie gebruikt de melding
+Laden/Charging om die status te herkennen, zowel in overzicht als sessielog.
+De laatst ontvangen vermogensmeting wordt gebruikt, niet de hoogste van de
+laatste twee metingen. De bestaande 40000/Gereed-correctie blijft behouden.
+
+41 tests slagen, inclusief verwerking van de meetregels uit het rapport:
+5400 W, 6.46 kWh sessieverbruik, laden in plaats van gepauzeerd.
+
+Historie: nog NIET opgelost. HTTP 302 blijft een aparte fout. Deze versie
+voegt een beperkte, veilige classificatie van de redirect toe aan de fout,
+zonder queryparameters of geheime gegevens. Maak na installatie opnieuw
+een diagnostisch rapport als maandtotalen/laatste sessie blijven ontbreken.
+
+Installeren: download de testbranch via Code > Download ZIP, pak uit en voer
+in de map met app.json uit:
+  npm ci
+  npx homey login
+  npx homey app install
+
+Voor publicatie via jouw Homey-ontwikkelaarsaccount:
+  npx homey app publish
+Controleer daarna het testkanaal in het Homey-ontwikkelaarsportaal.
+
+Controleer tijdens werkelijk laden na 2-5 minuten: Bezet Ja,
+Aan het laden Ja, actueel vermogen > 0 W en oplopend sessieverbruik.
+Controleer na loskoppelen: Bezet Nee, Aan het laden Nee en 0 W.
+
+Gebaseerd op de beschikbare GitHub-testbranch; de exacte gepubliceerde
+5.0.2-bundel is niet beschikbaar voor vergelijking. Geen live validatie op
+jouw Homey uitgevoerd en niet door ons naar de Homey App Store geupload.

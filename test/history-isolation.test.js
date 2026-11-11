@@ -8,7 +8,7 @@ const quiet = {log(){}, info(){}, debug(){}, dir(){}, warn(){}, error(){}};
 function deviceFixture(error) {
     const module = {exports:{}};
     vm.runInNewContext(fs.readFileSync(require.resolve('../drivers/chargepoint/device'), 'utf8'), {
-        module, console: quiet, require: name => name === 'homey' ? {Device:class {}} : name === './chargepoint' ? {enhance} : {}
+        module, console: quiet, require: name => name === 'homey' ? {Device:class {}} : name === './chargepoint' ? require('../drivers/chargepoint/chargepoint') : {}
     });
     const d = new module.exports();
     const values = new Map([['meter_consumedmonth', 123], ['meter_consumedlast', 12], ['occupied', true]]);
@@ -42,4 +42,19 @@ test('history authentication failure is not swallowed', async () => {
     const error = Object.assign(new Error('repair'), {code:'AUTH_REQUIRED'});
     const {d} = deviceFixture(error);
     await assert.rejects(d.updateDevice(), {code:'AUTH_REQUIRED'});
+});
+
+test('real charging report updates 5400 W and 6.46 kWh rather than zero or older peak', async () => {
+    const {d,values} = deviceFixture(new Error('unused'));
+    delete d.getLogLinedetailsAndSetMeters;
+    values.set('meter_consumedcurrent', 6.28);
+    await d.setStoreValue('meter_power_cache', 100);
+    d.chargepointService.SessionLog = async () => [
+        {STATUS:'50000',NOTIFICATION:'Laden',MOM_POWER_KW:5.4,TRANS_ENERGY_DELIVERED_KWH:6.46,LOG_DATE:'11-nov.-2026 19:02:31',EVENT_DATA:''},
+        {STATUS:'50000',NOTIFICATION:'Laden',MOM_POWER_KW:5.7,TRANS_ENERGY_DELIVERED_KWH:6.28,LOG_DATE:'11-nov.-2026 19:00:31',EVENT_DATA:''}
+    ];
+    await d.getLogLinedetailsAndSetMeters({idx:'test',channel:'1'});
+    assert.equal(values.get('measure_power'), 5400);
+    assert.equal(values.get('meter_consumedcurrent'), 6.46);
+    assert.equal(values.get('meter_power'), 106.46);
 });

@@ -5,6 +5,19 @@ const round = Math.round
 
 module.exports = {}
 
+// Notifications disambiguate portal deployments that reuse numeric status codes.
+module.exports.isCharging = function (data) {
+    const notification = String(data.NOTIFICATION ?? '').trim().toLowerCase();
+    if (['laden', 'charging'].includes(notification)) return true;
+    if (['gereed', 'ready', 'available', 'gepauzeerd', 'paused', 'suspended',
+         'suspendedev', 'suspendedevse', 'preparing transaction',
+         'transactie voorbereiden', 'finishing transaction', 'transactie afronden'].includes(notification)) return false;
+    if (String(data.STATUS) === '10000') return true;
+    // A positive measurement supports charging, without reclassifying every
+    // legacy 50000 (paused) response as charging.
+    return String(data.STATUS) === '50000' && Number(data.MOM_POWER_KW) > 0;
+};
+
 module.exports.enhance = function (data) {
     
     if (!data) {
@@ -28,11 +41,11 @@ module.exports.enhance = function (data) {
     //Status is also 0 when preparing, take that in account
     data.e.free = ready && !data.e.preparingEvses ? 1 : 0;
     //Charging is truly drawing power
-    data.e.charging = data.STATUS === '10000' ? 1 : 0;
+    data.e.charging = module.exports.isCharging(data) ? 1 : 0;
     //The overal duration of a connected connector
     data.e.occupied = data.e.free === 0 ? 1 : 0;
     //Suspended is the status when there is a EV connected with an active session but it is not charging
-    data.e.suspended = data.STATUS === '50000' ? 1 : 0;
+    data.e.suspended = data.STATUS === '50000' && !data.e.charging ? 1 : 0;
     //This is a Error like state that prevents new sessions from being started
     data.e.blocked = data.STATUS === '20000' ? 1 : 0;
     //We now grab the active card from the API statusdetail object to accuratly reflect the used card, this should work also when a card was swiped.

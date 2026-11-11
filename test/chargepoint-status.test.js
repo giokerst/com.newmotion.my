@@ -28,3 +28,17 @@ test('preparing and finishing connectors remain occupied without an active sessi
         assert.equal(e.activeSession, false);
     }
 });
+
+test('reported 50000 with Laden and live measurements is charging, not paused', () => {
+    const { e } = enhance({STATUS:'50000', NOTIFICATION:'Laden', MOM_POWER_KW:5.4});
+    assert.equal(e.charging, 1);
+    assert.equal(e.suspended, 0);
+    assert.equal(e.free, 0);
+    assert.equal(e.activeSession, true);
+});
+test('50000 with charging notification works even without overview power', () => {
+    assert.equal(enhance({STATUS:'50000', NOTIFICATION:'Laden'}).e.charging, 1);
+    assert.equal(enhance({STATUS:50000, NOTIFICATION:'Charging'}).e.charging, 1);
+    assert.equal(enhance({STATUS:'50000', NOTIFICATION:'Paused', MOM_POWER_KW:5.7}).e.charging, 0);
+    assert.equal(enhance({STATUS:'50000'}).e.charging, 0);
+});

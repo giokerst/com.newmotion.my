@@ -1,4 +1,7 @@
 {
+  "5.0.3": {
+    "en": "Fix charging status and live power for portal responses reporting 50000 with Laden; use the latest power reading and clarify history redirect diagnostics."
+  },
   "5.0.1": {
     "en": "Fix ready status being shown as occupied; handle history endpoint redirects and retain totals on history errors, with improved diagnostics."
   },
