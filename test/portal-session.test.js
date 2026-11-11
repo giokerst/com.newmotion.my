@@ -250,3 +250,53 @@ test('OTP challenge can redirect to alternate landing page and Overview query is
     assert.equal(new URL(f.requests[7].url).search, '?language=nl');
     assert.equal(f.steps.length, 0);
 });
+
+function authenticatedFixture(steps) {
+    const f = fixture(steps);
+    f.client.origin = origin;
+    f.client.jar.setCookieSync(cookie, origin);
+    f.client.state = 'authenticated';
+    return f;
+}
+test('history supports canonical redirects preserving method and body for 307', async () => {
+    const f = authenticatedFixture([response(307, '', {location:'/Transactions/List/json/?month=11'}), config => {
+        assert.equal(config.method, 'POST');
+        assert.equal(config.data, 'draw=1');
+        return response(200, '{"data":[]}');
+    }]);
+    assert.deepEqual(await f.client.request('POST', '/Transactions/List/json?month=11', 'draw=1'), {data:[]});
+});
+test('history follows 302 as a GET and still detects expired authentication', async () => {
+    const f = authenticatedFixture([response(302, '', {location:'/Transactions/List/json/'}), config => {
+        assert.equal(config.method, 'GET');
+        assert.equal(config.data, undefined);
+        return response(302, '', {location:'/2fa'});
+    }]);
+    await assert.rejects(f.client.request('POST', '/Transactions/List/json', 'draw=1'), {code:'AUTH_REQUIRED'});
+});
+test('history rejects foreign and unrelated redirect destinations', async () => {
+    for (const location of ['https://evil.example/Transactions/List/json', '/api/ajax?action=start']) {
+        const f = authenticatedFixture([response(302, '', {location})]);
+        await assert.rejects(f.client.request('POST', '/Transactions/List/json', 'draw=1'));
+        assert.equal(f.requests.length, 1);
+    }
+});
+test('history redirect loops stop after three redirects', async () => {
+    const f = authenticatedFixture(Array.from({length:4}, () => response(307, '', {location:'/Transactions/List/json/'})));
+    await assert.rejects(f.client.request('POST', '/Transactions/List/json', 'draw=1'), /HISTORY; HTTP 307/);
+    assert.equal(f.requests.length, 4);
+});
+test('history error identifies HTTP status without leaking response or query data', async () => {
+    const f = authenticatedFixture([response(404, 'private response')]);
+    await assert.rejects(f.client.request('POST', '/Transactions/List/json?secret=private', 'private body'), error => {
+        assert.match(error.message, /HISTORY; HTTP 404/);
+        assert.doesNotMatch(error.message, /private/);
+        return true;
+    });
+    assert.equal(f.client.state, 'authenticated');
+});
+test('commands never follow redirects even to the history endpoint', async () => {
+    const f = authenticatedFixture([response(307, '', {location:'/Transactions/List/json'})]);
+    await assert.rejects(f.client.request('POST', '/api/ajax', 'command'), /REQUEST; HTTP 307/);
+    assert.equal(f.requests.length, 1);
+});

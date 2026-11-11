@@ -756,7 +756,7 @@ class Chargepoint extends Homey.Device {
                 else
                     console.log('Could not find session id:', sessions[0]["0"]);
 
-                let lastsessionid = match[1];
+                let lastsessionid = match ? match[1] : null;
                 let previouslastsessionid = this.getStoreValue('lastsessionid');
                 if(previouslastsessionid!=lastsessionid)
                 {
@@ -774,13 +774,18 @@ class Chargepoint extends Homey.Device {
                     console.log('No match found.');
                 }
 
-                this.setIfHasCapability('last_session_card', cardmatch[1].trim());
+                this.setIfHasCapability('last_session_card', cardmatch ? cardmatch[1].trim() : null);
                 this.setIfHasCapability('meter_consumedmonth', sum);
             } else {
                 this.setIfHasCapability('meter_consumedlast', 0);
                 this.setIfHasCapability('last_session_card', null);
                 this.setIfHasCapability('meter_consumedmonth', 0);
             }
+        }).catch(err => {
+            // Preserve previous totals when history is unavailable. Live status has
+            // already been updated and must not be reported as a failed poll.
+            if (err.code === 'AUTH_REQUIRED') throw err;
+            this.error('Transaction history unavailable; previous totals retained:', err.message);
         });
     }
 

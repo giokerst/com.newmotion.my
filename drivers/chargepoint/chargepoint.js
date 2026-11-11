@@ -11,6 +11,9 @@ module.exports.enhance = function (data) {
         throw new Error("Invalid data object passed to enhance()");
     } 
 
+    // The portal can serialize status codes as numbers or strings.
+    data.STATUS = String(data.STATUS ?? "");
+    const ready = data.STATUS === "0" || data.STATUS === "40000";
     data.e = { connectors: {} }
     data.e.total = 1;
     //Preparing is when the cable is in and hooked, but no active session started
@@ -23,11 +26,11 @@ module.exports.enhance = function (data) {
          ? 1 : data.NOTIFICATION === 'Transaction en cours de clôture'
          ? 1 : 0;
     //Status is also 0 when preparing, take that in account
-    data.e.free = data.STATUS === '0' ? data.e.preparingEvses>0 ? 0 : 1 : 0;
+    data.e.free = ready && !data.e.preparingEvses ? 1 : 0;
     //Charging is truly drawing power
     data.e.charging = data.STATUS === '10000' ? 1 : 0;
     //The overal duration of a connected connector
-    data.e.occupied = data.STATUS !== '0' ? 1 : data.e.preparingEvses>0 ? 0 : 1;
+    data.e.occupied = data.e.free === 0 ? 1 : 0;
     //Suspended is the status when there is a EV connected with an active session but it is not charging
     data.e.suspended = data.STATUS === '50000' ? 1 : 0;
     //This is a Error like state that prevents new sessions from being started
